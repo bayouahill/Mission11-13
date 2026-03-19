@@ -18,12 +18,15 @@ public class BooksController : ControllerBase
     public async Task<IActionResult> GetBooks(
         [FromQuery] int pageNum = 1,
         [FromQuery] int pageSize = 5,
-        [FromQuery] string sortBy = "title")
+        [FromQuery] string sortBy = "title",
+        [FromQuery] string sortOrder = "asc")
     {
         var query = _context.Books.AsQueryable();
 
         if (sortBy.ToLower() == "title")
-            query = query.OrderBy(b => b.Title);
+            query = sortOrder.ToLower() == "desc"
+                ? query.OrderByDescending(b => b.Title)
+                : query.OrderBy(b => b.Title);
 
         var totalCount = await query.CountAsync();
 
