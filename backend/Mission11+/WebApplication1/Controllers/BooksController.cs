@@ -19,9 +19,13 @@ public class BooksController : ControllerBase
         [FromQuery] int pageNum = 1,
         [FromQuery] int pageSize = 5,
         [FromQuery] string sortBy = "title",
-        [FromQuery] string sortOrder = "asc")
+        [FromQuery] string sortOrder = "asc",
+        [FromQuery] string? category = null)
     {
         var query = _context.Books.AsQueryable();
+
+        if (!string.IsNullOrEmpty(category))
+            query = query.Where(b => b.Category == category);
 
         if (sortBy.ToLower() == "title")
             query = sortOrder.ToLower() == "desc"

@@ -1,0 +1,52 @@
+.cart-wrapper {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+}
+
+.cart-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.cart-table {
+  background: #ffffff;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.cart-table thead {
+  background-color: #1a1a2e;
+  color: #ffffff;
+}
+
+.cart-table thead th {
+  font-weight: 600;
+  padding: 0.9rem 1rem;
+  border: none;
+}
+
+.cart-table tbody td {
+  padding: 0.85rem 1rem;
+  border-color: #f0f0f0;
+}
+
+.cart-table tfoot td {
+  padding: 0.85rem 1rem;
+  background-color: #f8f9fa;
+}
+
+.qty-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.1rem;
+}
+
+.qty-display {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1rem;
+}

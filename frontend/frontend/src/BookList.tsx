@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Toast as BsToast } from 'bootstrap';
+import { useCart } from './CartContext';
 import './BookList.css';
 
 interface Book {
@@ -14,27 +17,72 @@ interface Book {
 }
 
 function BookList() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { cartItems, addToCart, setLastBrowseState } = useCart();
+
+  // Restore state from URL params (for "Continue Shopping")
+  const [pageNum, setPageNum] = useState(Number(searchParams.get('page') ?? 1));
+  const [pageSize, setPageSize] = useState(Number(searchParams.get('size') ?? 5));
+  const [category, setCategory] = useState(searchParams.get('category') ?? '');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>(
+    (searchParams.get('sortOrder') as 'asc' | 'desc') ?? 'asc'
+  );
+
   const [books, setBooks] = useState<Book[]>([]);
-  const [pageNum, setPageNum] = useState(1);
-  const [pageSize, setPageSize] = useState(5);
   const [totalCount, setTotalCount] = useState(0);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [toastBook, setToastBook] = useState('');
 
+  const toastRef = useRef<HTMLDivElement>(null);
   const totalPages = Math.ceil(totalCount / pageSize);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Fetch categories once on mount
   useEffect(() => {
-    fetch(
-      `http://localhost:5200/books?pageNum=${pageNum}&pageSize=${pageSize}&sortBy=title&sortOrder=${sortOrder}`
-    )
+    fetch('http://localhost:5200/categories')
+      .then((res) => res.json())
+      .then((data) => setCategories(data));
+  }, []);
+
+  // Fetch books whenever filters change
+  useEffect(() => {
+    setLoading(true);
+    const params = new URLSearchParams({
+      pageNum: String(pageNum),
+      pageSize: String(pageSize),
+      sortBy: 'title',
+      sortOrder,
+      ...(category ? { category } : {}),
+    });
+    fetch(`http://localhost:5200/books?${params}`)
       .then((res) => res.json())
       .then((data) => {
         setBooks(data.books);
         setTotalCount(data.totalCount);
+        setLoading(false);
       });
-  }, [pageNum, pageSize, sortOrder]);
+  }, [pageNum, pageSize, sortOrder, category]);
+
+  // Keep URL in sync with state
+  useEffect(() => {
+    const p: Record<string, string> = {
+      page: String(pageNum),
+      size: String(pageSize),
+      sortOrder,
+    };
+    if (category) p.category = category;
+    setSearchParams(p, { replace: true });
+  }, [pageNum, pageSize, sortOrder, category]);
 
   const handlePageSizeChange = (newSize: number) => {
     setPageSize(newSize);
+    setPageNum(1);
+  };
+
+  const handleCategoryChange = (newCategory: string) => {
+    setCategory(newCategory);
     setPageNum(1);
   };
 
@@ -43,119 +91,265 @@ function BookList() {
     setPageNum(1);
   };
 
+  const handleAddToCart = (book: Book) => {
+    addToCart({ bookID: book.bookID, title: book.title, price: book.price });
+    setToastBook(book.title);
+    if (toastRef.current) {
+      BsToast.getOrCreateInstance(toastRef.current).show();
+    }
+  };
+
+  const handleGoToCart = () => {
+    setLastBrowseState({ pageNum, pageSize, category, sortOrder });
+    navigate('/cart');
+  };
+
   return (
     <div className="bookstore-wrapper">
-      <div className="container py-5">
-        <div className="bookstore-header mb-4">
-          <h1 className="bookstore-title">📚 Bookstore</h1>
-          <p className="bookstore-subtitle">Browse Prof. Hilton's favorite reads</p>
-        </div>
-
-        <div className="d-flex align-items-center gap-3 mb-3">
-          <div className="d-flex align-items-center gap-2">
-            <label htmlFor="pageSize" className="form-label mb-0 fw-semibold">
-              Results per page:
-            </label>
-            <select
-              id="pageSize"
-              className="form-select form-select-sm w-auto"
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
+      {/* ── Bootstrap Toast (New Bootstrap feature #1) ── */}
+      <div className="toast-container position-fixed top-0 end-0 p-3" style={{ zIndex: 1100 }}>
+        <div
+          ref={toastRef}
+          className="toast align-items-center text-bg-success border-0"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
+          <div className="d-flex">
+            <div className="toast-body">
+              🛒 <strong>{toastBook}</strong> added to cart!
+            </div>
+            <button
+              type="button"
+              className="btn-close btn-close-white me-2 m-auto"
+              data-bs-dismiss="toast"
+              aria-label="Close"
+            ></button>
           </div>
-          <span className="text-muted small">
-            Showing {Math.min((pageNum - 1) * pageSize + 1, totalCount)}–
-            {Math.min(pageNum * pageSize, totalCount)} of {totalCount} books
-          </span>
+        </div>
+      </div>
+
+      <div className="container-fluid py-4 px-4">
+        {/* ── Header ── */}
+        <div className="row mb-4 align-items-center">
+          <div className="col">
+            <div className="bookstore-header">
+              <h1 className="bookstore-title">📚 Bookstore</h1>
+              <p className="bookstore-subtitle">Browse Prof. Hilton's favorite reads</p>
+            </div>
+          </div>
+          <div className="col-auto">
+            <button className="btn btn-primary position-relative" onClick={handleGoToCart}>
+              🛒 Cart
+              {cartCount > 0 && (
+                <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
-        <div className="table-responsive shadow-sm rounded">
-          <table className="table table-hover align-middle mb-0 bookstore-table">
-            <thead>
-              <tr>
-                <th
-                  className="sortable-col"
-                  onClick={handleTitleSort}
-                  title="Click to sort by title"
-                >
-                  Title{' '}
-                  <span className="sort-icon">
-                    {sortOrder === 'asc' ? '▲' : '▼'}
-                  </span>
-                </th>
-                <th>Author</th>
-                <th>Publisher</th>
-                <th>ISBN</th>
-                <th>Classification</th>
-                <th>Category</th>
-                <th>Pages</th>
-                <th>Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {books.map((book) => (
-                <tr key={book.bookID}>
-                  <td className="fw-semibold">{book.title}</td>
-                  <td>{book.author}</td>
-                  <td>{book.publisher}</td>
-                  <td className="text-muted small">{book.isbn}</td>
-                  <td>
-                    <span className="badge bg-secondary">{book.classification}</span>
-                  </td>
-                  <td>
-                    <span className="badge bg-info text-dark">{book.category}</span>
-                  </td>
-                  <td>{book.pageCount}</td>
-                  <td className="text-success fw-semibold">
-                    ${book.price.toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {/* ── Bootstrap Grid: sidebar + main ── */}
+        <div className="row g-4">
 
-        <div className="d-flex justify-content-center mt-4">
-          <nav>
-            <ul className="pagination">
-              <li className={`page-item ${pageNum === 1 ? 'disabled' : ''}`}>
-                <button
-                  className="page-link"
-                  onClick={() => setPageNum(pageNum - 1)}
+          {/* ── Sidebar ── */}
+          <div className="col-lg-3">
+            {/* sticky-top (New Bootstrap feature #2) */}
+            <div className="sticky-top" style={{ top: '1rem' }}>
+
+              {/* Category Filter Card */}
+              <div className="card shadow-sm mb-3">
+                <div className="card-header fw-bold">Filter by Category</div>
+                <div className="card-body p-2">
+                  <div className="list-group list-group-flush">
+                    <button
+                      className={`list-group-item list-group-item-action ${category === '' ? 'active' : ''}`}
+                      onClick={() => handleCategoryChange('')}
+                    >
+                      All Categories
+                    </button>
+                    {categories.map((cat) => (
+                      <button
+                        key={cat}
+                        className={`list-group-item list-group-item-action ${category === cat ? 'active' : ''}`}
+                        onClick={() => handleCategoryChange(cat)}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Cart Summary Card */}
+              <div className="card shadow-sm">
+                <div className="card-header fw-bold d-flex justify-content-between align-items-center">
+                  Cart Summary
+                  {cartCount > 0 && (
+                    <span className="badge bg-primary rounded-pill">{cartCount}</span>
+                  )}
+                </div>
+                <div className="card-body">
+                  {cartItems.length === 0 ? (
+                    <p className="text-muted small mb-0">No items yet.</p>
+                  ) : (
+                    <>
+                      <ul className="list-unstyled mb-2 small">
+                        {cartItems.map((item) => (
+                          <li key={item.bookID} className="d-flex justify-content-between">
+                            <span className="text-truncate me-2" style={{ maxWidth: '160px' }}>
+                              {item.title}
+                            </span>
+                            <span className="text-muted">×{item.quantity}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <hr className="my-2" />
+                      <div className="d-flex justify-content-between fw-semibold">
+                        <span>Total</span>
+                        <span className="text-success">
+                          ${cartItems
+                            .reduce((s, i) => s + i.price * i.quantity, 0)
+                            .toFixed(2)}
+                        </span>
+                      </div>
+                      <button
+                        className="btn btn-primary btn-sm w-100 mt-3"
+                        onClick={handleGoToCart}
+                      >
+                        View Cart
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          {/* ── Main Content ── */}
+          <div className="col-lg-9">
+            {/* Controls row */}
+            <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
+              <div className="d-flex align-items-center gap-2">
+                <label htmlFor="pageSize" className="form-label mb-0 fw-semibold">
+                  Results per page:
+                </label>
+                <select
+                  id="pageSize"
+                  className="form-select form-select-sm w-auto"
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
                 >
-                  &laquo; Prev
-                </button>
-              </li>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                <li
-                  key={page}
-                  className={`page-item ${page === pageNum ? 'active' : ''}`}
-                >
-                  <button
-                    className="page-link"
-                    onClick={() => setPageNum(page)}
-                  >
-                    {page}
-                  </button>
-                </li>
-              ))}
-              <li
-                className={`page-item ${pageNum === totalPages ? 'disabled' : ''}`}
-              >
-                <button
-                  className="page-link"
-                  onClick={() => setPageNum(pageNum + 1)}
-                >
-                  Next &raquo;
-                </button>
-              </li>
-            </ul>
-          </nav>
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+              <span className="text-muted small">
+                {totalCount === 0
+                  ? 'No books found'
+                  : `Showing ${Math.min((pageNum - 1) * pageSize + 1, totalCount)}–${Math.min(pageNum * pageSize, totalCount)} of ${totalCount} books`}
+              </span>
+            </div>
+
+            {/* Table or Spinner */}
+            {loading ? (
+              // Bootstrap spinner (New Bootstrap feature #1 - spinner-border)
+              <div className="d-flex justify-content-center py-5">
+                <div className="spinner-border text-primary" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              <div className="table-responsive shadow-sm rounded">
+                <table className="table table-hover align-middle mb-0 bookstore-table">
+                  <thead>
+                    <tr>
+                      <th
+                        className="sortable-col"
+                        onClick={handleTitleSort}
+                        title="Click to sort by title"
+                      >
+                        Title{' '}
+                        <span className="sort-icon">
+                          {sortOrder === 'asc' ? '▲' : '▼'}
+                        </span>
+                      </th>
+                      <th>Author</th>
+                      <th>Publisher</th>
+                      <th>ISBN</th>
+                      <th>Classification</th>
+                      <th>Category</th>
+                      <th>Pages</th>
+                      <th>Price</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {books.map((book) => (
+                      <tr key={book.bookID}>
+                        <td className="fw-semibold">{book.title}</td>
+                        <td>{book.author}</td>
+                        <td>{book.publisher}</td>
+                        <td className="text-muted small">{book.isbn}</td>
+                        <td>
+                          <span className="badge bg-secondary">{book.classification}</span>
+                        </td>
+                        <td>
+                          <span className="badge bg-info text-dark">{book.category}</span>
+                        </td>
+                        <td>{book.pageCount}</td>
+                        <td className="text-success fw-semibold">
+                          ${book.price.toFixed(2)}
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={() => handleAddToCart(book)}
+                          >
+                            + Cart
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+              <div className="d-flex justify-content-center mt-4">
+                <nav>
+                  <ul className="pagination">
+                    <li className={`page-item ${pageNum === 1 ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPageNum(pageNum - 1)}>
+                        &laquo; Prev
+                      </button>
+                    </li>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <li
+                        key={page}
+                        className={`page-item ${page === pageNum ? 'active' : ''}`}
+                      >
+                        <button className="page-link" onClick={() => setPageNum(page)}>
+                          {page}
+                        </button>
+                      </li>
+                    ))}
+                    <li className={`page-item ${pageNum === totalPages ? 'disabled' : ''}`}>
+                      <button className="page-link" onClick={() => setPageNum(pageNum + 1)}>
+                        Next &raquo;
+                      </button>
+                    </li>
+                  </ul>
+                </nav>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
