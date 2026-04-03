@@ -1,19 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-interface Book {
-  bookID: number;
-  title: string;
-  author: string;
-  publisher: string;
-  isbn: string;
-  classification: string;
-  category: string;
-  pageCount: number;
-  price: number;
-}
-
-const API_BASE = 'http://localhost:5200';
+import {
+  fetchBooks,
+  addBook,
+  updateBook,
+  deleteBook,
+  type Book,
+} from './api/booksApi';
 
 const emptyBook: Omit<Book, 'bookID'> = {
   title: '',
@@ -39,13 +32,10 @@ export default function AdminBooksPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const fetchBooks = async () => {
+  const loadBooks = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `${API_BASE}/books?pageNum=${pageNum}&pageSize=${pageSize}&sortBy=title&sortOrder=asc`
-      );
-      const data = await res.json();
+      const data = await fetchBooks({ pageNum, pageSize, sortBy: 'title', sortOrder: 'asc' });
       setBooks(data.books);
       setTotalCount(data.totalCount);
     } finally {
@@ -54,7 +44,7 @@ export default function AdminBooksPage() {
   };
 
   useEffect(() => {
-    fetchBooks();
+    loadBooks();
   }, [pageNum]);
 
   const openAdd = () => {
@@ -80,8 +70,8 @@ export default function AdminBooksPage() {
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Delete this book?')) return;
-    await fetch(`${API_BASE}/books/${id}`, { method: 'DELETE' });
-    fetchBooks();
+    await deleteBook(id);
+    loadBooks();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -89,20 +79,12 @@ export default function AdminBooksPage() {
     setSaving(true);
     try {
       if (editingBook) {
-        await fetch(`${API_BASE}/books/${editingBook.bookID}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, bookID: editingBook.bookID }),
-        });
+        await updateBook({ ...formData, bookID: editingBook.bookID });
       } else {
-        await fetch(`${API_BASE}/books`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...formData, bookID: 0 }),
-        });
+        await addBook(formData);
       }
       setShowForm(false);
-      fetchBooks();
+      loadBooks();
     } finally {
       setSaving(false);
     }

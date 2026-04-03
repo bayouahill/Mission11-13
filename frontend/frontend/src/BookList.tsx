@@ -2,19 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toast as BsToast } from 'bootstrap';
 import { useCart } from './CartContext';
+import { fetchBooks, fetchCategories, type Book } from './api/booksApi';
 import './BookList.css';
-
-interface Book {
-  bookID: number;
-  title: string;
-  author: string;
-  publisher: string;
-  isbn: string;
-  classification: string;
-  category: string;
-  pageCount: number;
-  price: number;
-}
 
 function BookList() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,23 +30,13 @@ function BookList() {
 
   // Fetch categories once on mount
   useEffect(() => {
-    fetch('http://localhost:5200/categories')
-      .then((res) => res.json())
-      .then((data) => setCategories(data));
+    fetchCategories().then((data) => setCategories(data));
   }, []);
 
   // Fetch books whenever filters change
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({
-      pageNum: String(pageNum),
-      pageSize: String(pageSize),
-      sortBy: 'title',
-      sortOrder,
-      ...(category ? { category } : {}),
-    });
-    fetch(`http://localhost:5200/books?${params}`)
-      .then((res) => res.json())
+    fetchBooks({ pageNum, pageSize, sortBy: 'title', sortOrder, category })
       .then((data) => {
         setBooks(data.books);
         setTotalCount(data.totalCount);
