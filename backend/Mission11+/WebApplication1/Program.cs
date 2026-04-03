@@ -12,7 +12,11 @@ builder.Services.AddDbContext<BookstoreContext>(options =>
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+        policy.WithOrigins(
+                  "http://localhost:5173",
+                  "https://localhost:5173",
+                  "https://gentle-water-077a79210.7.azurestaticapps.net"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
