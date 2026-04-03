@@ -134,49 +134,49 @@ function BookList() {
 
           {/* ── Sidebar ── */}
           <div className="col-lg-3">
-            {/* sticky-top (New Bootstrap feature #2) */}
             <div className="sticky-top" style={{ top: '1rem' }}>
 
-              {/* Category Filter Card */}
-              <div className="card shadow-sm mb-3">
-                <div className="card-header fw-bold">Filter by Category</div>
-                <div className="card-body p-2">
-                  <div className="list-group list-group-flush">
+              {/* Category Filter */}
+              <div className="sidebar-card">
+                <div className="sidebar-card-header">Filter by Category</div>
+                <ul className="category-list">
+                  <li>
                     <button
-                      className={`list-group-item list-group-item-action ${category === '' ? 'active' : ''}`}
+                      className={category === '' ? 'active' : ''}
                       onClick={() => handleCategoryChange('')}
                     >
                       All Categories
                     </button>
-                    {categories.map((cat) => (
+                  </li>
+                  {categories.map((cat) => (
+                    <li key={cat}>
                       <button
-                        key={cat}
-                        className={`list-group-item list-group-item-action ${category === cat ? 'active' : ''}`}
+                        className={category === cat ? 'active' : ''}
                         onClick={() => handleCategoryChange(cat)}
                       >
                         {cat}
                       </button>
-                    ))}
-                  </div>
-                </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              {/* Cart Summary Card */}
-              <div className="card shadow-sm">
-                <div className="card-header fw-bold d-flex justify-content-between align-items-center">
-                  Cart Summary
+              {/* Cart Summary */}
+              <div className="sidebar-card">
+                <div className="sidebar-card-header d-flex justify-content-between align-items-center">
+                  <span>Cart Summary</span>
                   {cartCount > 0 && (
                     <span className="badge bg-primary rounded-pill">{cartCount}</span>
                   )}
                 </div>
-                <div className="card-body">
+                <div className="p-3">
                   {cartItems.length === 0 ? (
                     <p className="text-muted small mb-0">No items yet.</p>
                   ) : (
                     <>
                       <ul className="list-unstyled mb-2 small">
                         {cartItems.map((item) => (
-                          <li key={item.bookID} className="d-flex justify-content-between">
+                          <li key={item.bookID} className="d-flex justify-content-between py-1">
                             <span className="text-truncate me-2" style={{ maxWidth: '160px' }}>
                               {item.title}
                             </span>
@@ -185,18 +185,13 @@ function BookList() {
                         ))}
                       </ul>
                       <hr className="my-2" />
-                      <div className="d-flex justify-content-between fw-semibold">
+                      <div className="d-flex justify-content-between fw-semibold small">
                         <span>Total</span>
-                        <span className="text-success">
-                          ${cartItems
-                            .reduce((s, i) => s + i.price * i.quantity, 0)
-                            .toFixed(2)}
+                        <span style={{ color: 'var(--primary)' }}>
+                          ${cartItems.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}
                         </span>
                       </div>
-                      <button
-                        className="btn btn-primary btn-sm w-100 mt-3"
-                        onClick={handleGoToCart}
-                      >
+                      <button className="btn btn-primary btn-sm w-100 mt-3" onClick={handleGoToCart}>
                         View Cart
                       </button>
                     </>
@@ -209,7 +204,6 @@ function BookList() {
 
           {/* ── Main Content ── */}
           <div className="col-lg-9">
-            {/* Controls row */}
             <div className="d-flex align-items-center gap-3 mb-3 flex-wrap">
               <div className="d-flex align-items-center gap-2">
                 <label htmlFor="pageSize" className="form-label mb-0 fw-semibold">
@@ -243,7 +237,7 @@ function BookList() {
                 </div>
               </div>
             ) : (
-              <div className="table-responsive shadow-sm rounded">
+              <div className="content-card table-responsive">
                 <table className="table table-hover align-middle mb-0 bookstore-table">
                   <thead>
                     <tr>
